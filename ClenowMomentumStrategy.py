@@ -2,6 +2,7 @@ import backtrader as bt
 from Indicators import Momentum, IsInIndex
 
 TOP_STOCKS_PCT = 0.2
+MAXIMUM_GAP = 0.15
 STOCK_MOVING_AVERAGE = 100
 INDEX_MOVING_AVERAGE = 200
 
@@ -12,6 +13,8 @@ class ClenowMomentumStrategy(bt.Strategy):
         self.inds = {}
         self.index = self.datas[0]
         self.stocks = self.datas[1:]
+        self.portfolio_initialized = False
+        self.cash = self.broker.get_cash()
 
         self.index_sma200 = bt.indicators.SimpleMovingAverage(self.index, period=INDEX_MOVING_AVERAGE)
 
@@ -27,23 +30,16 @@ class ClenowMomentumStrategy(bt.Strategy):
         self.next()
 
     def next(self):
-        if len(self) == INDEX_MOVING_AVERAGE:
-            self.__initialize_portfolio()
-        elif len(self) > INDEX_MOVING_AVERAGE:
-            if self.__week_passed():
-                self.__portfolio_rebalance()
-            if self.__two_weeks_passed():
-                self.__positions_rebalance()
-
-    def notify_trade(self, trade):
-        if trade.status == 0:
-            status = "Created"
-        elif trade.status == 1:
-            buy_sell = "Bought" if trade.size>0 else "Sold"
-            print(f"{buy_sell} {abs(trade.size)} of {trade.getdataname()} shares for price {trade.price}.")
-
-        if trade.isclosed:
-            print (f"Closed position for {trade.getdataname()}")
+        self.cash = self.broker.get_cash()
+        if len(self) >= INDEX_MOVING_AVERAGE:
+            if not self.portfolio_initialized:
+                self.__initialize_portfolio()
+            else:
+                if self.__week_passed():
+                    print (self.broker.get_cash())
+                    self.__portfolio_rebalance()
+                if self.__two_weeks_passed():
+                    self.__positions_rebalance()
 
     def __portfolio_rebalance(self):
         self.__update_rankings()
@@ -52,12 +48,11 @@ class ClenowMomentumStrategy(bt.Strategy):
             self.__buy_stocks()
 
     def __positions_rebalance(self):
-        if self.__is_index_in_positive_trend():
-            for i, d in enumerate(self.rankings[:int(len(self.rankings) * TOP_STOCKS_PCT)]):
-                cash = self.broker.get_cash()
-                if cash <= 0:
-                    break
-                self.order_target_size(d, self.__position_size(d))
+        for i, d in enumerate(self.rankings[:int(len(self.rankings) * TOP_STOCKS_PCT)]):
+            cash = self.broker.get_cash()
+            if cash <= 0:
+                break
+            self.order_target_size(d, self.__position_size(d))
 
     def __week_passed(self):
         return len(self) % 5 == 0
@@ -70,21 +65,32 @@ class ClenowMomentumStrategy(bt.Strategy):
         self.rankings.sort(key=lambda d: self.inds[d]["momentum"][0])
 
     def __sell_stocks(self):
-        for i, d in enumerate(self.rankings):
-            if self.getposition(d).size:
+        for i, stock in enumerate(self.rankings):
+            position_size = self.getposition(stock).size
+            position_price = self.getposition(stock).price
+            if position_size:
                 if i > len(self.rankings) * TOP_STOCKS_PCT or \
-                        d < self.inds[d]["sma100"] or \
-                        self.inds[d]["is_in_index"] == False:
-                    self.close(d)
+                        not self.__is_stock_in_positive_trend(stock) or \
+                        not self.__is_stock_in_index(stock): # and a gap
+
+                    value = position_size * position_price
+                    self.close(stock)
+                    print(f"Closing position {stock._dataname} by selling {position_size} shares.")
+                    self.cash = self.cash + value
 
     def __buy_stocks(self):
-        cash = self.broker.get_cash()
-        for i, d in enumerate(self.rankings[:int(len(self.rankings) * TOP_STOCKS_PCT)]):
-            cash = self.broker.get_cash()
-            if cash <= 0:
-                break
-            if not self.getposition(d).size:
-                self.buy(d, size=self.__position_size(d))
+        if self.cash > 0:
+            for stock in self.rankings[:int(len(self.rankings) * TOP_STOCKS_PCT)]:
+                if not self.getposition(stock).size and self.__is_stock_in_positive_trend(stock): # and gap
+                    size = self.__position_size(stock)
+                    price = stock[0]
+                    value = size * price
+                    if self.cash >= value:
+                        print(f"Bought {size} of {stock._dataname} shares for price {stock[0]}.")
+                        self.buy(stock, size=size)
+                        self.cash = self.cash - value
+                    else:
+                        break
 
     def __is_index_in_positive_trend(self):
         return self.index > self.index_sma200
@@ -101,5 +107,16 @@ class ClenowMomentumStrategy(bt.Strategy):
     def __initialize_portfolio(self):
         if self.__is_index_in_positive_trend():
             self.__update_rankings()
-            self.__buy_stocks()
 
+            for stock in self.rankings:
+                if self.__is_stock_in_positive_trend(stock):  # and max gap
+                    size = self.__position_size(stock)
+                    price = stock[0]
+                    value = size * price
+                    if self.cash >= value:
+                        print (f"Bought {size} of {stock._dataname} shares for price {stock[0]}.")
+                        self.buy(stock, size=size)
+                        self.cash = self.cash - value
+                    else:
+                        break
+            self.portfolio_initialized = True
