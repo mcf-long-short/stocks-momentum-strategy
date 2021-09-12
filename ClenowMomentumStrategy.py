@@ -1,10 +1,12 @@
 import backtrader as bt
-from Indicators import Momentum
+from Indicators import Momentum, IsInIndex
+
+TOP_STOCKS_PCT = 0.2
+STOCK_MOVING_AVERAGE = 100
+INDEX_MOVING_AVERAGE = 200
 
 
 class ClenowMomentumStrategy(bt.Strategy):
-
-    TOP_STOCKS = 0.2
 
     def __init__(self):
         self.i = 0
@@ -12,12 +14,12 @@ class ClenowMomentumStrategy(bt.Strategy):
         self.index = self.datas[0]
         self.stocks = self.datas[1:]
 
-        self.index_sma200 = bt.indicators.SimpleMovingAverage(self.index.adjclose, period=200)
+        self.index_sma200 = bt.indicators.SimpleMovingAverage(self.index.adjclose, period=INDEX_MOVING_AVERAGE)
 
         for d in self.stocks:
             self.inds[d] = {}
             self.inds[d]["momentum"] = Momentum(d.adjclose, period=90)
-            self.inds[d]["sma100"] = bt.indicators.SimpleMovingAverage(d.adjclose, period=100)
+            self.inds[d]["sma100"] = bt.indicators.SimpleMovingAverage(d.adjclose, period=STOCK_MOVING_AVERAGE)
             self.inds[d]["atr20"] = bt.indicators.ATR(d, period=20)
 
     def prenext(self):
@@ -42,7 +44,7 @@ class ClenowMomentumStrategy(bt.Strategy):
             return
 
         # rebalance all stocks
-        for i, d in enumerate(self.rankings[:int(len(self.rankings) * 0.2)]):
+        for i, d in enumerate(self.rankings[:int(len(self.rankings) * TOP_STOCKS_PCT)]):
             cash = self.broker.get_cash()
             value = self.broker.get_value()
             if cash <= 0:
@@ -63,11 +65,11 @@ class ClenowMomentumStrategy(bt.Strategy):
     def __sell_stocks(self):
         for i, d in enumerate(self.rankings):
             if self.getposition(self.data).size:
-                if i > len(self.rankings) * 0.2 or d < self.inds[d]["sma100"]:
+                if i > len(self.rankings) * TOP_STOCKS_PCT or d < self.inds[d]["sma100"]:
                     self.close(d)
 
     def __buy_stocks(self):
-        for i, d in enumerate(self.rankings[:int(len(self.rankings) * 0.2)]):
+        for i, d in enumerate(self.rankings[:int(len(self.rankings) * TOP_STOCKS_PCT)]):
             cash = self.broker.get_cash()
             value = self.broker.get_value()
             if cash <= 0:
