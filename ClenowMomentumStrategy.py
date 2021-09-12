@@ -5,7 +5,7 @@ TOP_STOCKS_PCT = 0.2
 MAXIMUM_GAP = 0.15
 STOCK_MOVING_AVERAGE = 100
 INDEX_MOVING_AVERAGE = 200
-
+GAP_MOVING_AVERAGE = 90
 
 class ClenowMomentumStrategy(bt.Strategy):
 
@@ -22,6 +22,7 @@ class ClenowMomentumStrategy(bt.Strategy):
             self.inds[d] = {}
             self.inds[d]["momentum"] = Momentum(d, period=90)
             self.inds[d]["sma100"] = bt.indicators.SimpleMovingAverage(d, period=STOCK_MOVING_AVERAGE)
+            self.inds[d]["sma90"] = bt.indicators.SimpleMovingAverage(d, period=GAP_MOVING_AVERAGE)
             self.inds[d]["atr20"] = bt.indicators.ATR(d, period=20)
             self.inds[d]["is_in_index"] = IsInIndex(d)
 
@@ -71,7 +72,8 @@ class ClenowMomentumStrategy(bt.Strategy):
             if position_size:
                 if i > len(self.rankings) * TOP_STOCKS_PCT or \
                         not self.__is_stock_in_positive_trend(stock) or \
-                        not self.__is_stock_in_index(stock): # and a gap
+                        not self.__is_stock_in_index(stock) or \
+                        self.__stock_exceeds_gap(stock):
 
                     value = position_size * position_price
                     self.close(stock)
@@ -81,7 +83,10 @@ class ClenowMomentumStrategy(bt.Strategy):
     def __buy_stocks(self):
         if self.cash > 0:
             for stock in self.rankings[:int(len(self.rankings) * TOP_STOCKS_PCT)]:
-                if not self.getposition(stock).size and self.__is_stock_in_positive_trend(stock): # and gap
+                if not self.getposition(stock).size and \
+                        self.__is_stock_in_positive_trend(stock) and \
+                        not self.__stock_exceeds_gap(stock):
+
                     size = self.__position_size(stock)
                     price = stock[0]
                     value = size * price
@@ -101,6 +106,12 @@ class ClenowMomentumStrategy(bt.Strategy):
     def __is_stock_in_index(self, stock):
         return self.inds[stock]["is_in_index"] == True
 
+    def __stock_exceeds_gap(self, stock, initial=False):
+        if initial:
+            abs((stock[0]-self.inds[stock]["sma90"])/self.inds[stock]["sma90"]) > MAXIMUM_GAP
+        else:
+            abs((stock[0] - stock[-1]) / stock[-1]) > MAXIMUM_GAP
+
     def __position_size(self, stock):
         return int(self.broker.get_value() * 0.001 / self.inds[stock]["atr20"])
 
@@ -109,7 +120,7 @@ class ClenowMomentumStrategy(bt.Strategy):
             self.__update_rankings()
 
             for stock in self.rankings:
-                if self.__is_stock_in_positive_trend(stock):  # and max gap
+                if self.__is_stock_in_positive_trend(stock) and not self.__stock_exceeds_gap(stock, True):
                     size = self.__position_size(stock)
                     price = stock[0]
                     value = size * price
@@ -120,3 +131,4 @@ class ClenowMomentumStrategy(bt.Strategy):
                     else:
                         break
             self.portfolio_initialized = True
+
