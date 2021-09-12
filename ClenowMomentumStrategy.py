@@ -4,24 +4,21 @@ from Indicators import Momentum
 
 class ClenowMomentumStrategy(bt.Strategy):
 
-    TOP_STOCKS = 20
+    TOP_STOCKS = 0.2
 
     def __init__(self):
         self.i = 0
         self.inds = {}
-        self.spy = self.datas[0]
+        self.index = self.datas[0]
         self.stocks = self.datas[1:]
 
-        self.spy_sma200 = bt.indicators.SimpleMovingAverage(self.spy.close,
-                                                            period=200)
+        self.index_sma200 = bt.indicators.SimpleMovingAverage(self.index.adjclose, period=200)
+
         for d in self.stocks:
             self.inds[d] = {}
-            self.inds[d]["momentum"] = Momentum(d.close,
-                                                period=90)
-            self.inds[d]["sma100"] = bt.indicators.SimpleMovingAverage(d.close,
-                                                                       period=100)
-            self.inds[d]["atr20"] = bt.indicators.ATR(d,
-                                                      period=20)
+            self.inds[d]["momentum"] = Momentum(d.adjclose, period=90)
+            self.inds[d]["sma100"] = bt.indicators.SimpleMovingAverage(d.adjclose, period=100)
+            self.inds[d]["atr20"] = bt.indicators.ATR(d, period=20)
 
     def prenext(self):
         # call next() even when data is not available for all tickers
@@ -41,7 +38,7 @@ class ClenowMomentumStrategy(bt.Strategy):
             self.__buy_stocks()
 
     def positions_rebalance(self):
-        if self.spy < self.spy_sma200:
+        if self.index < self.index_sma200:
             return
 
         # rebalance all stocks
@@ -80,4 +77,4 @@ class ClenowMomentumStrategy(bt.Strategy):
                 self.buy(d, size=size)
 
     def __is_index_in_positive_trend(self):
-        return self.spy > self.spy_sma200
+        return self.index > self.index_sma200
