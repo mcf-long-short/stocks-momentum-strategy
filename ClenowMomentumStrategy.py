@@ -7,6 +7,7 @@ STOCK_MOVING_AVERAGE = 100
 INDEX_MOVING_AVERAGE = 200
 GAP_MOVING_AVERAGE = 90
 
+
 class ClenowMomentumStrategy(bt.Strategy):
 
     def __init__(self):
@@ -42,6 +43,8 @@ class ClenowMomentumStrategy(bt.Strategy):
                 if self.__two_weeks_passed():
                     self.__positions_rebalance()
 
+        print (f"Cash: {self.broker.get_cash()}.")
+
     def __portfolio_rebalance(self):
         self.__update_rankings()
         self.__sell_stocks()
@@ -49,11 +52,28 @@ class ClenowMomentumStrategy(bt.Strategy):
             self.__buy_stocks()
 
     def __positions_rebalance(self):
-        for i, d in enumerate(self.rankings[:int(len(self.rankings) * TOP_STOCKS_PCT)]):
-            cash = self.broker.get_cash()
-            if cash <= 0:
-                break
-            self.order_target_size(d, self.__position_size(d))
+        for stock in self.rankings:
+            position_size = self.getposition(stock).size
+            new_position_size = self.__position_size(stock)
+            price = stock[0]
+
+            if new_position_size > position_size:
+                buy_size = new_position_size - position_size
+                value = buy_size * price
+                if self.cash >= value:
+                    self.buy(stock, size=buy_size)
+                    print(f"Bought {buy_size} of {stock._dataname} shares for price {price}.")
+                    self.cash = self.cash - value
+                else:
+                    continue
+            elif new_position_size < position_size:
+                sell_size = position_size - new_position_size
+                value = sell_size * price
+                self.sell(stock, size=sell_size)
+                print(f"Sold {sell_size} of {stock._dataname} shares for price {price}.")
+                self.cash = self.cash + value
+            else:
+                pass
 
     def __week_passed(self):
         return len(self) % 5 == 0
