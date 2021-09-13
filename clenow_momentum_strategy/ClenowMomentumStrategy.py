@@ -19,7 +19,7 @@ class ClenowMomentumStrategy(bt.Strategy):
         self.portfolio_initialized = False
         self.cash = self.broker.get_cash()
 
-        self.index_sma200 = bt.indicators.SimpleMovingAverage(self.index, period=INDEX_MOVING_AVERAGE)
+        self.index_sma = bt.indicators.SimpleMovingAverage(self.index.close, period=INDEX_MOVING_AVERAGE)
 
         for d in self.stocks:
             self.inds[d] = {}
@@ -37,9 +37,7 @@ class ClenowMomentumStrategy(bt.Strategy):
         self.cash = self.broker.get_cash()
         if len(self) >= INDEX_MOVING_AVERAGE:
             if not self.portfolio_initialized:
-                print ("Initializing Portfolio.")
                 self.__initialize_portfolio()
-                print ("")
             else:
                 if self.__week_passed():
                     print ("Portfolio Rebalancing")
@@ -102,7 +100,7 @@ class ClenowMomentumStrategy(bt.Strategy):
 
                     value = position_size * position_price
                     self.close(stock)
-                    print(f"Closing position {stock._dataname} by selling {position_size} shares.")
+                    print(f"Closing position {stock._dataname} by selling {abs(position_size)} shares.")
                     self.cash = self.cash + value
 
     def __buy_stocks(self):
@@ -123,7 +121,7 @@ class ClenowMomentumStrategy(bt.Strategy):
                         break
 
     def __is_index_in_positive_trend(self):
-        return self.index > self.index_sma200
+        return self.index > self.index_sma
 
     def __is_stock_in_positive_trend(self, stock):
         return stock > self.inds[stock]["sma100"]
@@ -142,6 +140,7 @@ class ClenowMomentumStrategy(bt.Strategy):
 
     def __initialize_portfolio(self):
         if self.__is_index_in_positive_trend():
+            print("Initializing Portfolio.")
             self.__update_rankings()
 
             for stock in self.rankings:
@@ -156,4 +155,5 @@ class ClenowMomentumStrategy(bt.Strategy):
                     else:
                         break
             self.portfolio_initialized = True
+            print("")
 
