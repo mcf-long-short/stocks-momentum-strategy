@@ -37,15 +37,18 @@ class ClenowMomentumStrategy(bt.Strategy):
         self.cash = self.broker.get_cash()
         if len(self) >= INDEX_MOVING_AVERAGE:
             if not self.portfolio_initialized:
+                print ("Initializing Portfolio.")
                 self.__initialize_portfolio()
+                print ("")
             else:
                 if self.__week_passed():
-                    print (self.broker.get_cash())
+                    print ("Portfolio Rebalancing")
                     self.__portfolio_rebalance()
+                    print ("")
                 if self.__two_weeks_passed():
+                    print("Position Rebalancing")
                     self.__positions_rebalance()
-
-        print (f"Cash: {self.broker.get_cash()}.")
+                    print("")
 
     def __portfolio_rebalance(self):
         self.__update_rankings()
