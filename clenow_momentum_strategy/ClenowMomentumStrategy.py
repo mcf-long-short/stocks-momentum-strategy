@@ -113,7 +113,7 @@ class ClenowMomentumStrategy(bt.Strategy):
                     size = self.__position_size(stock)
                     price = stock[0]
                     value = size * price
-                    if self.cash >= value:
+                    if self.cash >= value and size > 0:
                         print(f"Bought {size} of {stock._dataname} shares for price {stock[0]}.")
                         self.buy(stock, size=size)
                         self.cash = self.cash - value
