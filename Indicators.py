@@ -1,11 +1,12 @@
 import backtrader as bt
 from scipy.stats import linregress
 import numpy as np
+from Configuration import MOMENTUM_PERIOD
 
 
 class Momentum(bt.Indicator):
     lines = ('trend',)
-    params = (('period', 90),)
+    params = (('period', MOMENTUM_PERIOD),)
 
     def __init__(self):
         self.addminperiod(self.params.period)

@@ -1,11 +1,13 @@
 import backtrader as bt
 from Indicators import Momentum, IsInIndex
 
-TOP_STOCKS_PCT = 0.2
-MAXIMUM_GAP = 0.15
-STOCK_MOVING_AVERAGE = 100
-INDEX_MOVING_AVERAGE = 200
-GAP_MOVING_AVERAGE = 90
+from Configuration import \
+    TOP_STOCKS_PCT, \
+    MAXIMUM_GAP, \
+    STOCK_MOVING_AVERAGE, \
+    INDEX_MOVING_AVERAGE, \
+    GAP_MOVING_AVERAGE, \
+    MOMENTUM_PERIOD
 
 
 class ClenowMomentumStrategy(bt.Strategy):
@@ -21,7 +23,7 @@ class ClenowMomentumStrategy(bt.Strategy):
 
         for d in self.stocks:
             self.inds[d] = {}
-            self.inds[d]["momentum"] = Momentum(d, period=90)
+            self.inds[d]["momentum"] = Momentum(d, period=MOMENTUM_PERIOD)
             self.inds[d]["sma100"] = bt.indicators.SimpleMovingAverage(d, period=STOCK_MOVING_AVERAGE)
             self.inds[d]["sma90"] = bt.indicators.SimpleMovingAverage(d, period=GAP_MOVING_AVERAGE)
             self.inds[d]["atr20"] = bt.indicators.ATR(d, period=20)
@@ -82,7 +84,7 @@ class ClenowMomentumStrategy(bt.Strategy):
         return len(self) % 10 == 0
 
     def __update_rankings(self):
-        self.rankings = list(filter(lambda d: len(d) > 100, self.stocks))
+        self.rankings = list(filter(lambda d: len(d) > STOCK_MOVING_AVERAGE, self.stocks))
         self.rankings.sort(key=lambda d: self.inds[d]["momentum"][0])
 
     def __sell_stocks(self):
@@ -128,9 +130,9 @@ class ClenowMomentumStrategy(bt.Strategy):
 
     def __stock_exceeds_gap(self, stock, initial=False):
         if initial:
-            abs((stock[0]-self.inds[stock]["sma90"])/self.inds[stock]["sma90"]) > MAXIMUM_GAP
+            return abs((stock[0]-self.inds[stock]["sma90"])/self.inds[stock]["sma90"]) > MAXIMUM_GAP
         else:
-            abs((stock[0] - stock[-1]) / stock[-1]) > MAXIMUM_GAP
+            return abs((stock[0] - stock[-1]) / stock[-1]) > MAXIMUM_GAP
 
     def __position_size(self, stock):
         return int(self.broker.get_value() * 0.001 / self.inds[stock]["atr20"])
