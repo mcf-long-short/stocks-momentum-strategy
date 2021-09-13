@@ -35,7 +35,7 @@ class ClenowMomentumStrategy(bt.Strategy):
 
     def next(self):
         self.cash = self.broker.get_cash()
-        if len(self) >= INDEX_MOVING_AVERAGE:
+        if len(self) >= 200:
             if not self.portfolio_initialized:
                 self.__initialize_portfolio()
             else:
