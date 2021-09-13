@@ -1,7 +1,7 @@
 import backtrader as bt
 from scipy.stats import linregress
 import numpy as np
-from Configuration import MOMENTUM_PERIOD
+from clenow_momentum_strategy.Configuration import MOMENTUM_PERIOD
 
 
 class Momentum(bt.Indicator):

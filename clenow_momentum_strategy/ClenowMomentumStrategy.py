@@ -1,7 +1,7 @@
 import backtrader as bt
-from Indicators import Momentum, IsInIndex
+from clenow_momentum_strategy.Indicators import Momentum, IsInIndex
 
-from Configuration import \
+from clenow_momentum_strategy.Configuration import \
     TOP_STOCKS_PCT, \
     MAXIMUM_GAP, \
     STOCK_MOVING_AVERAGE, \
